@@ -1,0 +1,47 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:11.1-alpine
+    environment:
+      - POSTGRES_USER=pybossa
+      - POSTGRES_PASSWORD=pybossa
+      - POSTGRES_DB=pybossa
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./temp/postgres/data:/var/lib/postgresql/data
+
+  redis-master:
+    image: redis:3
+
+  redis-slave:
+    image: redis:3
+    command: redis-server --slaveof redis-master 6379
+    links:
+      - redis-master
+
+  sentinel:
+    build: sentinel
+    ports:
+      - '26379:26379'
+    environment:
+      - SENTINEL_DOWN_AFTER=5000
+      - SENTINEL_FAILOVER=5000    
+    links:
+      - redis-master
+      - redis-slave
+
+  app:
+    depends_on:
+      - 'postgres'
+      - 'sentinel'
+    build: .
+    ports:
+      - '5000:5000'
+    volumes:
+      - '.:/pybossa'
+
+volumes:
+  redis:
+  postgres:
